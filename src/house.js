@@ -13,6 +13,7 @@ import * as THREE from 'three';
 
 const LEVEL_RE = /^niveau[\s_-]*(.+)$/i;
 const STAIR_RE = /escalier|stair/i;
+const GUARD_RE = /rampe|garde[\s_-]?corps|main[\s_-]?courante|balustr/i;
 const EXTERIOR_RE = /toit|terrasse|balcon|loggia|ext[ée]rieur|jardin|cour\b|pergola/i;
 const ANNEX_RE = /garage|cave|local|cellier|buanderie|annexe|chaufferie|grenier/i;
 
@@ -219,6 +220,8 @@ export function analyzeHouse(root) {
     let entry;
     if (isGlass(mesh)) {
       entry = { kind: 'glass', label: prettyName(rest || 'Vitrage') };
+    } else if (GUARD_RE.test(name) || GUARD_RE.test(matNames)) {
+      entry = { kind: 'wall', label: prettyName(rest) }; // rampe / garde-corps : obstacle, pas une marche
     } else if (STAIR_RE.test(matNames) || (STAIR_RE.test(name) && size.y > 0.6)) {
       // une dalle fine nommée « …escalier-sol » reste un sol
       entry = { kind: 'stair', label: STAIR_RE.test(rest) ? prettyName(rest) : `Escalier (${rest.replace(/[-_]+/g, ' ')})` };

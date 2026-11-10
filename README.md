@@ -54,7 +54,7 @@ garde-corps vitrés bloquent le passage. Il faut une ouverture d'au moins ~45 cm
 
 ## Conventions de nommage reconnues
 
-Ce sont celles de `maison.gltf` :
+Ce sont celles de `models/maison (3).gltf` :
 
 - un nœud par niveau : `niveau-S`, `niveau-0`, `niveau-1`… (S → Sous-sol, 0 → RDC, n → R+n, T → Toiture)
 - les sols d'un niveau : `<clé du niveau>-<pièce>`, par ex. `0-salon`, `1-suite-parentale`

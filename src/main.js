@@ -67,6 +67,24 @@ function persist() {
 const $ = (id) => document.getElementById(id);
 const fmt = (n, d = 2) => n.toLocaleString('fr-FR', { minimumFractionDigits: d, maximumFractionDigits: d });
 
+// --- écrans tactiles : la classe `touch` sur <body> active joystick et aides adaptées ----
+const isTouch = () => document.body.classList.contains('touch');
+function setTouch(on) {
+  if (isTouch() === on) return;
+  document.body.classList.toggle('touch', on);
+  renderHelp();
+}
+// appareil hybride : l'interface suit le dernier pointeur utilisé
+window.addEventListener('pointerdown', (e) => setTouch(e.pointerType !== 'mouse'), true);
+
+// --- petits écrans : réglages (soleil, coupe) dans une feuille coulissante ---------------
+function setSheet(open) {
+  if (document.body.classList.contains('sheet-open') === open) return;
+  document.body.classList.toggle('sheet-open', open);
+  $('sheet-toggle').setAttribute('aria-expanded', String(open));
+}
+$('sheet-toggle').addEventListener('click', () => setSheet(!document.body.classList.contains('sheet-open')));
+
 // ---------------------------------------------------------------------------
 // Rendu
 // ---------------------------------------------------------------------------
@@ -191,13 +209,27 @@ function setStatus(text, loading = false) {
 }
 
 let toastTimer;
-function toast(text, error = false) {
+function toast(text, error = false, ms = error ? 5000 : 2600) {
   const el = $('toast');
   el.textContent = text;
   el.classList.toggle('error', error);
   el.classList.add('show');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove('show'), error ? 5000 : 2600);
+  toastTimer = setTimeout(() => el.classList.remove('show'), ms);
+}
+
+// aide gestuelle affichée une fois par session sur écran tactile
+const hinted = { orbit: false, walk: false };
+function touchHint(mode) {
+  if (!isTouch() || hinted[mode]) return;
+  hinted[mode] = true;
+  toast(
+    mode === 'walk'
+      ? 'Joystick : avancer · glissez ailleurs : regarder'
+      : '1 doigt : tourner · 2 doigts : zoom · touchez deux fois un sol pour le visiter',
+    false,
+    4500,
+  );
 }
 
 function renderModelSelect() {
@@ -216,7 +248,9 @@ function renderModelSelect() {
   for (const m of entries) {
     const o = document.createElement('option');
     o.value = m.url ?? `file:${m.name}`;
-    o.textContent = m.file ? `${m.name} (fichier local)` : m.name;
+    const short = m.name.split('/').pop().replace(/\.(glb|gltf)$/i, ''); // « models/maison (3).gltf » -> « maison (3) »
+    o.textContent = m.file ? `${short} (fichier local)` : short;
+    o.title = m.name;
     sel.appendChild(o);
   }
   sel.value = state.current ? (state.current.url ?? `file:${state.current.name}`) : '';
@@ -240,6 +274,7 @@ async function loadModel(entry, { keepView = false } = {}) {
     renderModelSelect();
     persist();
     setStatus('');
+    if (first) touchHint('orbit');
     return true;
   } catch (err) {
     console.error(err);
@@ -412,7 +447,7 @@ function buildLevelButtons() {
   const all = document.createElement('button');
   all.className = 'all';
   all.dataset.level = '-1';
-  all.innerHTML = '<span class="name">Toute la maison</span>';
+  all.innerHTML = '<span class="name"><span class="long">Toute la maison</span><span class="short">Tout</span></span>';
   all.title = 'Afficher tous les étages';
   nav.appendChild(all);
   const sep = document.createElement('div');
@@ -629,12 +664,15 @@ function setMode(mode) {
     state.mode = 'walk';
     controls.enabled = false;
     tween = null;
-    requestLock();
+    if (!isTouch()) requestLock();
+    touchHint('walk');
   } else {
     state.mode = 'orbit';
     controls.enabled = true;
     if (document.pointerLockElement) document.exitPointerLock();
     keys.clear();
+    releaseJoy();
+    lookTouches.clear();
     // on revient sur l'étage où l'on se trouvait
     const lvl = state.house ? currentWalkLevel() : -1;
     if (savedOrbit) {
@@ -669,15 +707,37 @@ document.addEventListener('pointerlockchange', () => {
 });
 
 let dragLook = false;
-renderer.domElement.addEventListener('pointerdown', (e) => {
+const lookTouches = new Map(); // doigts qui font tourner la vue : pointerId -> dernière position
+const canvas = renderer.domElement;
+canvas.addEventListener('pointerdown', (e) => {
   // un curseur ou bouton du panneau garde sinon le focus et capterait les flèches
   if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
+  setSheet(false);
   if (state.mode !== 'walk') return;
-  if (!document.pointerLockElement) {
-    requestLock();
-    dragLook = true;
+  if (e.pointerType === 'mouse') {
+    if (!document.pointerLockElement) {
+      requestLock();
+      dragLook = true;
+    }
+    return;
   }
+  // tactile : le décor suit le doigt (plusieurs doigts possibles, en plus du joystick)
+  lookTouches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  canvas.setPointerCapture?.(e.pointerId);
 });
+canvas.addEventListener('pointermove', (e) => {
+  const t = lookTouches.get(e.pointerId);
+  if (!t || state.mode !== 'walk') return;
+  const k = THREE.MathUtils.degToRad(walkCam.fov) / window.innerHeight; // 1 px de doigt = 1 px de décor
+  const w = state.walker;
+  w.yaw += (e.clientX - t.x) * k;
+  w.pitch = THREE.MathUtils.clamp(w.pitch + (e.clientY - t.y) * k, -1.45, 1.45);
+  t.x = e.clientX;
+  t.y = e.clientY;
+});
+const endLook = (e) => lookTouches.delete(e.pointerId);
+canvas.addEventListener('pointerup', endLook);
+canvas.addEventListener('pointercancel', endLook);
 window.addEventListener('pointerup', () => (dragLook = false));
 window.addEventListener('mousemove', (e) => {
   if (state.mode !== 'walk') return;
@@ -733,14 +793,58 @@ window.addEventListener('blur', () => keys.clear());
 
 function readInput() {
   const k = (...codes) => codes.some((c) => keys.has(c));
-  // e.code = position physique : ZQSD sur AZERTY, WASD sur QWERTY
+  const clamp1 = (v) => Math.max(-1, Math.min(1, v));
+  // e.code = position physique : ZQSD sur AZERTY, WASD sur QWERTY ; + joystick tactile
   return {
-    forward: (k('KeyW', 'ArrowUp') ? 1 : 0) - (k('KeyS', 'ArrowDown') ? 1 : 0),
-    right: (k('KeyD') ? 1 : 0) - (k('KeyA') ? 1 : 0),
+    forward: clamp1((k('KeyW', 'ArrowUp') ? 1 : 0) - (k('KeyS', 'ArrowDown') ? 1 : 0) - joy.y),
+    right: clamp1((k('KeyD') ? 1 : 0) - (k('KeyA') ? 1 : 0) + joy.x),
     turn: (k('ArrowLeft') ? 1 : 0) - (k('ArrowRight') ? 1 : 0),
     run: k('ShiftLeft', 'ShiftRight'),
   };
 }
+
+// --- joystick tactile -----------------------------------------------------------
+// vecteur analogique -1..1 (y vers le bas de l'écran = reculer), zone morte au centre
+const joy = { id: null, x: 0, y: 0 };
+const joyEl = $('joystick');
+const knob = joyEl.querySelector('.knob');
+function moveJoy(e) {
+  const r = joyEl.getBoundingClientRect();
+  const max = r.width * 0.36;
+  let dx = e.clientX - (r.left + r.width / 2);
+  let dy = e.clientY - (r.top + r.height / 2);
+  const len = Math.hypot(dx, dy);
+  if (len > max) {
+    dx *= max / len;
+    dy *= max / len;
+  }
+  knob.style.transform = `translate(${dx.toFixed(1)}px, ${dy.toFixed(1)}px)`;
+  const m = Math.min(1, len / max);
+  const s = m < 0.15 ? 0 : (m - 0.15) / 0.85; // pousser un peu = marcher lentement
+  const cl = Math.hypot(dx, dy); // déjà borné à `max`
+  joy.x = cl ? (dx / cl) * s : 0;
+  joy.y = cl ? (dy / cl) * s : 0;
+}
+function releaseJoy(e) {
+  if (e && e.pointerId !== joy.id) return;
+  joy.id = null;
+  joy.x = 0;
+  joy.y = 0;
+  knob.style.transform = '';
+  joyEl.classList.remove('active');
+}
+joyEl.addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  setSheet(false);
+  joy.id = e.pointerId;
+  joyEl.setPointerCapture?.(e.pointerId);
+  joyEl.classList.add('active');
+  moveJoy(e);
+});
+joyEl.addEventListener('pointermove', (e) => e.pointerId === joy.id && moveJoy(e));
+joyEl.addEventListener('pointerup', releaseJoy);
+joyEl.addEventListener('pointercancel', releaseJoy);
+joyEl.addEventListener('lostpointercapture', releaseJoy);
 
 // --- double-clic sur un sol en maquette : on entre en visite à cet endroit ---
 const raycaster = new THREE.Raycaster();
@@ -748,9 +852,9 @@ function isShown(o) {
   for (let p = o; p; p = p.parent) if (!p.visible) return false;
   return true;
 }
-renderer.domElement.addEventListener('dblclick', (e) => {
+function walkFromScreen(clientX, clientY) {
   if (state.mode !== 'orbit' || !state.house) return;
-  const ndc = new THREE.Vector2((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
+  const ndc = new THREE.Vector2((clientX / window.innerWidth) * 2 - 1, -(clientY / window.innerHeight) * 2 + 1);
   raycaster.setFromCamera(ndc, orbitCam);
   const cutY = renderer.clippingPlanes.length ? cutPlane.constant : Infinity;
   const hits = raycaster
@@ -759,12 +863,39 @@ renderer.domElement.addEventListener('dblclick', (e) => {
   const hit = hits[0];
   const normal = hit?.face?.normal.clone().transformDirection(hit.object.matrixWorld);
   if (!hit || Math.abs(normal.y) < 0.7) {
-    toast('Double-cliquez sur un sol pour commencer la visite à cet endroit.');
+    toast(isTouch() ? 'Touchez deux fois un sol pour commencer la visite à cet endroit.' : 'Double-cliquez sur un sol pour commencer la visite à cet endroit.');
     return;
   }
   const look = new THREE.Vector3();
   orbitCam.getWorldDirection(look);
   enterWalk({ feet: hit.point.clone(), yaw: Math.atan2(-look.x, -look.z) });
+}
+canvas.addEventListener('dblclick', (e) => walkFromScreen(e.clientX, e.clientY));
+
+// double-tap : les navigateurs mobiles n'envoient pas toujours `dblclick`.
+// On date les gestes avec e.timeStamp (instant du contact) pour rester fiable même si
+// le rendu ralentit le traitement des événements.
+let tapStart = null;
+let lastTap = null;
+canvas.addEventListener('pointerdown', (e) => {
+  if (e.pointerType === 'mouse') return;
+  tapStart = e.isPrimary ? { x: e.clientX, y: e.clientY, t: e.timeStamp, id: e.pointerId } : null; // 2 doigts = pas un tap
+});
+canvas.addEventListener('pointerup', (e) => {
+  if (e.pointerType === 'mouse' || !tapStart || tapStart.id !== e.pointerId) return;
+  const now = e.timeStamp;
+  const isTap = now - tapStart.t < 300 && Math.hypot(e.clientX - tapStart.x, e.clientY - tapStart.y) < 12;
+  tapStart = null;
+  if (!isTap) {
+    lastTap = null;
+    return;
+  }
+  if (lastTap && now - lastTap.t < 380 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 40) {
+    lastTap = null;
+    walkFromScreen(e.clientX, e.clientY);
+  } else {
+    lastTap = { x: e.clientX, y: e.clientY, t: now };
+  }
 });
 
 // --- mini-carte -------------------------------------------------------------
@@ -852,6 +983,14 @@ function updateHud(force = false) {
 // --- aide contextuelle --------------------------------------------------------
 function renderHelp() {
   const help = $('help');
+  if (isTouch()) {
+    help.innerHTML =
+      state.mode === 'walk'
+        ? `<b>Visite</b> · joystick : avancer · glisser : regarder · plan : s'y rendre`
+        : `<b>Maquette</b> · 1 doigt : tourner · 2 doigts : zoom et déplacement<br>
+           <b>Touchez deux fois un sol</b> pour le visiter`;
+    return;
+  }
   help.innerHTML =
     state.mode === 'walk'
       ? `<b>Visite</b> · <kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> (WASD) ou <kbd>↑</kbd><kbd>↓</kbd> se déplacer · <kbd>←</kbd><kbd>→</kbd> tourner · souris : regarder<br>
@@ -1145,10 +1284,12 @@ renderer.setAnimationLoop((now) => {
 // ---------------------------------------------------------------------------
 // Démarrage
 // ---------------------------------------------------------------------------
+setTouch(!!window.matchMedia?.('(pointer: coarse)').matches);
 renderModelSelect();
 syncPlaceInputs();
 applySun();
 applyView();
+if (import.meta.env.DEV) window.__houseExplorer = { state }; // inspection depuis la console (dev uniquement)
 {
   const preferred = state.models.find((m) => m.url === saved.model) ?? state.models[0];
   if (preferred) loadModel(preferred);

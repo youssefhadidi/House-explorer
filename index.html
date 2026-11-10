@@ -2,7 +2,8 @@
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#e8edf1" />
     <title>House Explorer</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M4 15 16 5l12 10v13H4z' fill='%232563eb'/%3E%3Cpath d='M13 28v-8h6v8' fill='%23fff'/%3E%3C/svg%3E" />
   </head>
@@ -26,17 +27,22 @@
     </header>
 
     <div class="panel modes" role="tablist" aria-label="Mode de vue">
-      <button id="mode-orbit" role="tab" class="active" title="Vue d'ensemble (Tab)">
-        <svg viewBox="0 0 24 24"><path d="M12 3 3 8l9 5 9-5zM3 8v8l9 5 9-5V8" /></svg>Maquette
+      <button id="mode-orbit" role="tab" class="active" title="Vue d'ensemble (Tab)" aria-label="Maquette">
+        <svg viewBox="0 0 24 24"><path d="M12 3 3 8l9 5 9-5zM3 8v8l9 5 9-5V8" /></svg><span class="lbl">Maquette</span>
       </button>
-      <button id="mode-walk" role="tab" title="Visite à la première personne (Tab)">
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2" /><path d="m9 22 2-7-2-3 1-4h4l2 4h3M13 15l2 7M10 8 7 11" /></svg>Visite
+      <button id="mode-walk" role="tab" title="Visite à la première personne (Tab)" aria-label="Visite">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2" /><path d="m9 22 2-7-2-3 1-4h4l2 4h3M13 15l2 7M10 8 7 11" /></svg><span class="lbl">Visite</span>
       </button>
     </div>
 
+    <!-- petits écrans : ouvre le panneau réglages (soleil, coupe) en feuille coulissante -->
+    <button id="sheet-toggle" class="panel sheet-toggle" aria-label="Réglages : soleil et coupe" aria-expanded="false" aria-controls="side">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg>
+    </button>
+
     <nav id="levels" class="panel levels" aria-label="Étages"></nav>
 
-    <div class="side">
+    <div id="side" class="side">
       <section id="options" class="panel options">
         <label class="check"><input id="opt-cut" type="checkbox" checked /> Coupe horizontale</label>
         <label class="range" id="cut-range">
@@ -102,6 +108,9 @@
       <strong>Cliquez dans la vue pour regarder autour</strong>
       <span>Échap pour libérer la souris · Tab pour revenir à la maquette</span>
     </div>
+
+    <!-- écrans tactiles : joystick de déplacement (le regard se fait en glissant ailleurs) -->
+    <div id="joystick" class="joystick" aria-hidden="true"><div class="knob"></div></div>
 
     <div id="minimap" class="minimap" title="Cliquez sur le plan pour vous y rendre">
       <span id="minimap-label"></span>

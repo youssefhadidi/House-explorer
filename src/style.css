@@ -8,12 +8,18 @@
   --accent-soft: rgba(37, 99, 235, 0.12);
   --shadow: 0 6px 24px rgba(15, 23, 42, 0.12), 0 1px 3px rgba(15, 23, 42, 0.08);
   --radius: 12px;
+  /* encoche / barre d'accueil des téléphones (viewport-fit=cover) */
+  --sa-t: env(safe-area-inset-top, 0px);
+  --sa-r: env(safe-area-inset-right, 0px);
+  --sa-b: env(safe-area-inset-bottom, 0px);
+  --sa-l: env(safe-area-inset-left, 0px);
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   font-size: 14px;
   color: var(--text);
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; } /* sinon un `display: flex` l'emporte sur l'attribut */
 
 html, body {
   margin: 0;
@@ -40,7 +46,10 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
   z-index: 10;
 }
 
-button { font: inherit; color: inherit; cursor: pointer; }
+button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulation; }
+* { -webkit-tap-highlight-color: transparent; }
+body.touch { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+body.touch input { -webkit-user-select: auto; user-select: auto; }
 
 /* --- barre du haut ------------------------------------------------------ */
 .topbar { top: 16px; left: 16px; display: flex; align-items: center; gap: 10px; padding: 6px 8px 6px 12px; max-width: calc(100vw - 32px); }
@@ -78,6 +87,11 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .levels button.active .name { color: var(--accent); }
 .levels button.all .name { font-size: 13.5px; }
 .levels .sep { height: 1px; background: var(--panel-border); margin: 2px 6px; }
+.levels .short { display: none; }
+
+/* bouton des réglages : seulement sur petit écran (voir plus bas) */
+.sheet-toggle { display: none; color: #d97706; padding: 0; }
+.sheet-toggle svg { width: 22px; height: 22px; }
 
 /* --- colonne de droite ---------------------------------------------------- */
 .side { position: fixed; top: 70px; right: 16px; width: 264px; display: flex; flex-direction: column; gap: 10px; z-index: 10; max-height: calc(100vh - 86px); }
@@ -183,6 +197,29 @@ body.mode-walk .options { display: none; }
 .minimap { position: fixed; right: 16px; bottom: 16px; width: 220px; height: 220px; z-index: 10; border-radius: var(--radius); border: 1px solid var(--panel-border); box-shadow: var(--shadow); cursor: crosshair; }
 .minimap span { position: absolute; left: 8px; top: 6px; font-size: 11.5px; font-weight: 650; color: var(--muted); }
 
+/* --- tactile : joystick, viseur, pas de verrouillage de souris ------------- */
+.joystick {
+  display: none; position: fixed; z-index: 20;
+  left: calc(20px + var(--sa-l)); bottom: calc(20px + var(--sa-b));
+  width: 128px; height: 128px; border-radius: 50%;
+  background: rgba(20, 24, 31, 0.28); border: 2px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.25);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  touch-action: none;
+}
+.joystick.active { background: rgba(20, 24, 31, 0.4); }
+.joystick .knob {
+  position: absolute; left: 50%; top: 50%; width: 56px; height: 56px; margin: -28px 0 0 -28px;
+  border-radius: 50%; background: rgba(255, 255, 255, 0.94); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  transition: transform 0.15s ease-out; pointer-events: none;
+}
+.joystick.active .knob { transition: none; }
+body.touch.mode-walk .joystick { display: block; }
+body.touch .lock-hint { display: none !important; }
+body.touch.mode-walk .crosshair { display: block; }
+body.touch.mode-walk .help { display: none; }
+body.touch.mode-walk .toast { bottom: calc(176px + var(--sa-b)); }
+
 /* --- glisser-déposer & notifications ------------------------------------ */
 .drop { position: fixed; inset: 0; z-index: 50; display: none; place-items: center; background: rgba(37, 99, 235, 0.12); border: 3px dashed var(--accent); }
 .drop div { background: #fff; padding: 16px 24px; border-radius: var(--radius); box-shadow: var(--shadow); font-size: 15px; }
@@ -192,14 +229,73 @@ body.dragging .drop { display: grid; }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 .toast.error { background: #b42318; }
 
-@media (max-width: 720px) {
+/* --- téléphones (portrait ≤ 720 px de large, ou paysage ≤ 500 px de haut) ------------- */
+@media (max-width: 720px), (max-height: 500px) {
   .help { display: none; }
   .brand span { display: none; }
-  .model-pick select { max-width: 140px; }
-  .modes { top: 64px; }
-  .side { top: 112px; width: min(264px, calc(100vw - 32px)); }
-  .options { display: none; }
-  .minimap { width: 150px; height: 150px; }
-  body.mode-walk .compass { bottom: 178px; }
-  .modes button { padding: 7px 9px; }
+  .topbar { top: calc(12px + var(--sa-t)); left: calc(12px + var(--sa-l)); gap: 6px; padding: 5px 6px 5px 10px; }
+  .model-pick select { max-width: min(220px, calc(100vw - 236px)); text-overflow: ellipsis; }
+  .status { max-width: 80px; overflow: hidden; text-overflow: ellipsis; }
+
+  .modes { top: calc(12px + var(--sa-t)); right: calc(12px + var(--sa-r)); }
+  .modes .lbl { display: none; }
+  .modes button { padding: 8px 11px; }
+  .sheet-toggle { display: grid; place-items: center; top: calc(64px + var(--sa-t)); right: calc(12px + var(--sa-r)); width: 44px; height: 44px; }
+  body.sheet-open .sheet-toggle { background: var(--accent); color: #fff; }
+
+  .hud { top: calc(64px + var(--sa-t)); max-width: calc(100vw - 150px); padding: 6px 12px; font-size: 13px; }
+  .hud-room { overflow: hidden; text-overflow: ellipsis; }
+
+  .levels { left: calc(12px + var(--sa-l)); top: calc(112px + var(--sa-t)); transform: none; min-width: 0; padding: 4px; gap: 2px; }
+  .levels .title { display: none; }
+  .levels button { padding: 6px 10px; }
+  .levels button .name { font-size: 14px; }
+  .levels button .elev { font-size: 10.5px; }
+  .levels .long { display: none; }
+  .levels .short { display: inline; }
+
+  /* réglages : feuille qui monte du bas, ouverte par le bouton soleil */
+  .side {
+    top: auto; left: 0; right: 0; bottom: 0; width: auto; max-height: min(72vh, 560px);
+    padding: 20px calc(12px + var(--sa-r)) calc(12px + var(--sa-b)) calc(12px + var(--sa-l));
+    overflow-y: auto; overscroll-behavior: contain; z-index: 40;
+    background: rgba(243, 245, 247, 0.97); border-radius: 18px 18px 0 0; box-shadow: 0 -8px 30px rgba(15, 23, 42, 0.2);
+    transform: translateY(105%); visibility: hidden; transition: transform 0.25s ease, visibility 0s linear 0.25s;
+  }
+  body.sheet-open .side { transform: none; visibility: visible; transition: transform 0.25s ease, visibility 0s; }
+  .side::before { content: ''; position: absolute; top: 8px; left: 50%; width: 40px; height: 4px; margin-left: -20px; border-radius: 2px; background: rgba(15, 23, 42, 0.2); }
+  .side .panel { box-shadow: none; background: #fff; backdrop-filter: none; -webkit-backdrop-filter: none; flex-shrink: 0; }
+  .sun { overflow: visible; }
+  .periods button { padding: 8px 10px; }
+  .hour::-webkit-slider-thumb { width: 24px; height: 24px; }
+  .hour::-moz-range-thumb { width: 18px; height: 18px; }
+
+  .room-label { padding: 2px 6px 3px; border-radius: 6px; }
+  .room-label .name { font-size: 11px; }
+  .room-label .area { font-size: 10px; }
+
+  .compass { right: calc(12px + var(--sa-r)); bottom: calc(12px + var(--sa-b)); width: 52px; height: 52px; }
+  .minimap { right: calc(12px + var(--sa-r)); bottom: calc(12px + var(--sa-b)); width: 140px; height: 140px; }
+  body.mode-walk .compass { right: calc(18px + var(--sa-r)); bottom: calc(162px + var(--sa-b)); width: 46px; height: 46px; }
+  .joystick { left: calc(16px + var(--sa-l)); bottom: calc(16px + var(--sa-b)); }
+}
+
+/* paysage sur téléphone : peu de hauteur */
+@media (max-height: 500px) {
+  .levels { top: calc(62px + var(--sa-t)); }
+  .levels button { padding: 5px 10px; }
+  .levels button .elev { display: none; }
+  .joystick { width: 112px; height: 112px; }
+  .minimap { width: 120px; height: 120px; }
+  body.mode-walk .compass { bottom: calc(140px + var(--sa-b)); }
+  body.touch.mode-walk .toast { bottom: calc(140px + var(--sa-b)); }
+}
+/* paysage assez large : réglages en tiroir à droite plutôt qu'en feuille */
+@media (max-height: 500px) and (min-width: 600px) {
+  .side {
+    left: auto; top: 0; width: min(320px, 46vw); max-height: none;
+    padding: calc(12px + var(--sa-t)) calc(12px + var(--sa-r)) calc(12px + var(--sa-b)) 12px;
+    border-radius: 18px 0 0 18px; box-shadow: -8px 0 30px rgba(15, 23, 42, 0.2); transform: translateX(105%);
+  }
+  .side::before { display: none; }
 }

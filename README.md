@@ -29,6 +29,16 @@ n'importe quel serveur web.
 | Visite | `ZQSD` (WASD) / `↑↓` : avancer · `←→` : tourner · souris : regarder · `Maj` : courir |
 | Visite | clic sur la mini-carte : s'y rendre · `Échap` : libérer la souris, 2ᵉ `Échap` : maquette |
 
+### Sur téléphone ou tablette
+
+| Mode | Geste |
+|---|---|
+| Maquette | 1 doigt : tourner · 2 doigts : zoom et déplacement · **toucher deux fois un sol** : visiter |
+| Visite | **joystick** en bas à gauche : avancer (pousser un peu = marcher lentement) · glisser ailleurs : regarder (les deux en même temps) · toucher la mini-carte : s'y rendre |
+| Les deux | bouton ☀ : réglages (soleil, coupe) en feuille coulissante sur petit écran |
+
+Pour l'ouvrir depuis le téléphone sur le même Wi-Fi : `npm run dev -- --host`, puis l'adresse « Network » affichée.
+
 ## Soleil
 
 Le panneau **Soleil** simule l'ensoleillement réel :

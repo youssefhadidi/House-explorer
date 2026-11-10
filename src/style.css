@@ -90,7 +90,7 @@ body.touch input { -webkit-user-select: auto; user-select: auto; }
 .levels .short { display: none; }
 
 /* bouton des réglages : seulement sur petit écran (voir plus bas) */
-.sheet-toggle { display: none; color: #d97706; padding: 0; }
+.sheet-toggle { display: none; color: var(--text); padding: 0; }
 .sheet-toggle svg { width: 22px; height: 22px; }
 
 /* --- colonne de droite ---------------------------------------------------- */
@@ -105,6 +105,8 @@ body.touch input { -webkit-user-select: auto; user-select: auto; }
 .options .range output { color: var(--text); font-variant-numeric: tabular-nums; }
 .options input[type='range'] { width: 100%; accent-color: var(--accent); margin: 0; }
 .options .range.disabled { opacity: 0.4; pointer-events: none; }
+.walk-options { display: none; }
+.walk-options .range { padding-left: 0; }
 
 /* --- soleil -------------------------------------------------------------- */
 .sun { padding: 8px 12px 10px; overflow-y: auto; }
@@ -184,6 +186,7 @@ body.mode-walk .minimap { display: block; }
 body.mode-walk.locked .crosshair { display: block; }
 body.mode-walk:not(.locked) .lock-hint { display: flex; }
 body.mode-walk .options { display: none; }
+body.mode-walk .walk-options { display: flex; }
 
 .hud { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); z-index: 10; align-items: center; gap: 10px; padding: 7px 14px; background: rgba(20, 24, 31, 0.72); color: #fff; border-radius: 999px; backdrop-filter: blur(8px); white-space: nowrap; }
 .hud-level { font-weight: 700; padding-right: 10px; border-right: 1px solid rgba(255, 255, 255, 0.25); }

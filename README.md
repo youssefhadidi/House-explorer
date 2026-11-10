@@ -35,7 +35,18 @@ n'importe quel serveur web.
 |---|---|
 | Maquette | 1 doigt : tourner · 2 doigts : zoom et déplacement · **toucher deux fois un sol** : visiter |
 | Visite | **joystick** en bas à gauche : avancer (pousser un peu = marcher lentement) · glisser ailleurs : regarder (les deux en même temps) · toucher la mini-carte : s'y rendre |
-| Les deux | bouton ☀ : réglages (soleil, coupe) en feuille coulissante sur petit écran |
+| Les deux | bouton réglages (curseurs) : vue, soleil, coupe en feuille coulissante sur petit écran |
+
+### Échelle ressentie en visite
+
+Réglages « Visite » (panneau de droite, ou bouton réglages sur téléphone) :
+
+- **Angle de vue** (100° par défaut) : c'est l'angle *horizontal* qui est conservé, quel que soit le
+  format de l'écran. Sur un téléphone en portrait, il est limité à ~67° pour éviter la déformation
+  en haut et en bas de l'image ; tourner le téléphone donne la vue la plus naturelle.
+- **Votre taille** (1,72 m par défaut) : les yeux sont placés 11 cm sous le sommet du crâne, pour
+  voir les pièces depuis votre propre hauteur.
+- La marche se fait à 1,4 m/s, une allure normale à l'intérieur.
 
 Pour l'ouvrir depuis le téléphone sur le même Wi-Fi : `npm run dev -- --host`, puis l'adresse « Network » affichée.
 

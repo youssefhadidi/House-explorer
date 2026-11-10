@@ -13,7 +13,7 @@ export const BODY = {
   eye: 1.6,
   stepUp: 0.45, // permet d'aborder un escalier par le côté (2e marche)
   stepDown: 0.5,
-  walkSpeed: 1.6,
+  walkSpeed: 1.4, // pas normal à l'intérieur (m/s)
   runSpeed: 3.6,
   turnSpeed: 2.0,
   gravity: 9.81,

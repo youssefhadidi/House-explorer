@@ -36,6 +36,10 @@ const state = {
   lat: Number.isFinite(saved.lat) ? saved.lat : 46.0, // centre de la France par défaut
   lon: Number.isFinite(saved.lon) ? saved.lon : 2.0,
   orientation: Number.isFinite(saved.orientation) ? saved.orientation : 0, // azimut du haut du plan (-Z)
+  view: {
+    hfov: Number.isFinite(saved.view?.hfov) ? saved.view.hfov : 100, // angle de vue horizontal en visite (°)
+    height: Number.isFinite(saved.view?.height) ? saved.view.height : 1.72, // taille du visiteur (m)
+  },
   models: initialModels,
   current: null, // { name, url?, file? }
   house: null,
@@ -57,6 +61,7 @@ function persist() {
         lat: state.lat,
         lon: state.lon,
         orientation: state.orientation,
+        view: state.view,
       }),
     );
   } catch {
@@ -225,7 +230,8 @@ function touchHint(mode) {
   hinted[mode] = true;
   toast(
     mode === 'walk'
-      ? 'Joystick : avancer · glissez ailleurs : regarder'
+      ? 'Joystick : avancer · glissez ailleurs : regarder' +
+          (window.innerHeight > window.innerWidth ? ' · tournez le téléphone pour une vue plus large' : '')
       : '1 doigt : tourner · 2 doigts : zoom · touchez deux fois un sol pour le visiter',
     false,
     4500,
@@ -335,6 +341,7 @@ function setHouse(root, { keepView }) {
   const walkerYaw = state.walker?.yaw;
   const walkerPitch = state.walker?.pitch ?? 0;
   state.walker = new Walker(state.collider, BODY);
+  state.walker.body.eye = eyeHeight();
 
   // environnement à l'échelle de la maquette
   const box = house.box.isEmpty() ? new THREE.Box3(new THREE.Vector3(-5, 0, -5), new THREE.Vector3(5, 3, 5)) : house.box;
@@ -1161,6 +1168,53 @@ function updateCompass() {
 }
 
 // ---------------------------------------------------------------------------
+// Vue de visite : échelle ressentie
+// ---------------------------------------------------------------------------
+// Un angle vertical fixe rend la vue « zoomée » sur un téléphone en portrait (≈ 37° de large).
+// On fixe donc l'angle HORIZONTAL et on en déduit le vertical, plafonné à 110° en portrait
+// (au-delà, déformation trop forte en haut et en bas de l'image).
+const FOV_V_MIN = 25;
+const FOV_V_MAX = 110;
+const FOV_H_MAX = 120;
+const eyeHeight = () => state.view.height - 0.11; // les yeux sont ~11 cm sous le sommet du crâne
+
+function updateWalkView() {
+  const aspect = window.innerWidth / window.innerHeight;
+  const deg = THREE.MathUtils.radToDeg;
+  const rad = THREE.MathUtils.degToRad;
+  // angle horizontal le plus large que cet écran permet sans dépasser FOV_V_MAX en vertical
+  const maxH = Math.min(FOV_H_MAX, deg(2 * Math.atan(Math.tan(rad(FOV_V_MAX) / 2) * aspect)));
+  const h = Math.min(state.view.hfov, maxH);
+  const v = deg(2 * Math.atan(Math.tan(rad(h) / 2) / aspect));
+  walkCam.fov = THREE.MathUtils.clamp(v, FOV_V_MIN, FOV_V_MAX);
+  walkCam.aspect = aspect;
+  walkCam.updateProjectionMatrix();
+  if (state.walker) state.walker.body.eye = eyeHeight();
+
+  // le curseur s'arrête là où l'écran ne peut pas montrer plus large (≈ 67° sur un téléphone en portrait)
+  const slider = $('opt-fov');
+  slider.max = String(Math.round(maxH));
+  if (document.activeElement !== slider) slider.value = String(Math.round(h));
+  const effective = deg(2 * Math.atan(Math.tan(rad(walkCam.fov) / 2) * aspect)); // angle horizontal réel
+  $('fov-value').textContent = `${Math.round(effective)}°${state.view.hfov > maxH + 0.5 ? ' (max. sur cet écran)' : ''}`;
+  $('height-value').textContent = `${fmt(state.view.height)} m`;
+  $('eye-value').textContent = `${fmt(eyeHeight())} m`;
+}
+
+$('opt-fov').value = String(state.view.hfov);
+$('opt-height').value = String(state.view.height);
+$('opt-fov').addEventListener('input', (e) => {
+  state.view.hfov = Number(e.target.value);
+  persist();
+  updateWalkView();
+});
+$('opt-height').addEventListener('input', (e) => {
+  state.view.height = Number(e.target.value);
+  persist();
+  updateWalkView();
+});
+
+// ---------------------------------------------------------------------------
 // Options
 // ---------------------------------------------------------------------------
 $('opt-cut').checked = state.cut;
@@ -1242,10 +1296,9 @@ window.addEventListener('resize', () => {
   const h = window.innerHeight;
   renderer.setSize(w, h);
   labelRenderer.setSize(w, h);
-  for (const cam of [orbitCam, walkCam]) {
-    cam.aspect = w / h;
-    cam.updateProjectionMatrix();
-  }
+  orbitCam.aspect = w / h;
+  orbitCam.updateProjectionMatrix();
+  updateWalkView(); // l'angle de vue suit l'orientation de l'écran
 });
 
 let last = performance.now();
@@ -1285,6 +1338,7 @@ renderer.setAnimationLoop((now) => {
 // Démarrage
 // ---------------------------------------------------------------------------
 setTouch(!!window.matchMedia?.('(pointer: coarse)').matches);
+updateWalkView();
 renderModelSelect();
 syncPlaceInputs();
 applySun();

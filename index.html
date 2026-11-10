@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>House Explorer</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M4 15 16 5l12 10v13H4z' fill='%232563eb'/%3E%3Cpath d='M13 28v-8h6v8' fill='%23fff'/%3E%3C/svg%3E" />
+  </head>
+  <body>
+    <div id="viewport"></div>
+
+    <header class="panel topbar">
+      <div class="brand">
+        <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M4 15 16 5l12 10v13H4z" /><path class="door" d="M13 28v-8h6v8" /></svg>
+        <span>House Explorer</span>
+      </div>
+      <label class="model-pick">
+        <span class="sr">Maquette</span>
+        <select id="model-select" title="Maquette (.glb / .gltf du dossier du projet ou de models/)"></select>
+      </label>
+      <button id="open-file" class="icon-btn" title="Ouvrir un fichier .glb / .gltf">
+        <svg viewBox="0 0 24 24"><path d="M4 6a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z" /></svg>
+      </button>
+      <input id="file-input" type="file" accept=".glb,.gltf" hidden />
+      <span id="status" class="status"></span>
+    </header>
+
+    <div class="panel modes" role="tablist" aria-label="Mode de vue">
+      <button id="mode-orbit" role="tab" class="active" title="Vue d'ensemble (Tab)">
+        <svg viewBox="0 0 24 24"><path d="M12 3 3 8l9 5 9-5zM3 8v8l9 5 9-5V8" /></svg>Maquette
+      </button>
+      <button id="mode-walk" role="tab" title="Visite à la première personne (Tab)">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2" /><path d="m9 22 2-7-2-3 1-4h4l2 4h3M13 15l2 7M10 8 7 11" /></svg>Visite
+      </button>
+    </div>
+
+    <nav id="levels" class="panel levels" aria-label="Étages"></nav>
+
+    <div class="side">
+      <section id="options" class="panel options">
+        <label class="check"><input id="opt-cut" type="checkbox" checked /> Coupe horizontale</label>
+        <label class="range" id="cut-range">
+          <span>Hauteur <output id="cut-value">1,20 m</output></span>
+          <input id="opt-cut-height" type="range" min="0.3" max="2.6" step="0.05" value="1.2" />
+        </label>
+        <label class="check"><input id="opt-labels" type="checkbox" checked /> Noms des pièces</label>
+      </section>
+
+      <section id="sun-panel" class="panel sun">
+        <header>
+          <button id="sun-toggle" class="sun-title" aria-expanded="true" title="Afficher / masquer">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg>
+            Soleil
+            <svg class="chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></svg>
+          </button>
+          <span class="sun-clock"><output id="sun-time">15:00</output></span>
+          <button id="sun-play" class="icon-btn small" title="Animer la journée">
+            <svg class="play" viewBox="0 0 24 24"><path d="M7 5v14l11-7z" /></svg>
+            <svg class="pause" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14" /></svg>
+          </button>
+        </header>
+        <div class="sun-body">
+          <div id="sun-periods" class="periods" role="radiogroup" aria-label="Période de l'année"></div>
+          <input id="sun-hour" class="hour" type="range" min="5" max="22.5" step="0.25" value="15" aria-label="Heure légale" />
+          <div class="hour-scale"><span>5h</span><span>9h</span><span>13h</span><span>17h</span><span>21h</span></div>
+          <div id="sun-info" class="sun-info"></div>
+          <details class="sun-place">
+            <summary>Lieu et orientation</summary>
+            <div class="place-grid">
+              <label>Latitude <input id="sun-lat" type="number" step="0.1" min="-89" max="89" /></label>
+              <label>Longitude <input id="sun-lon" type="number" step="0.1" min="-180" max="180" /></label>
+              <label class="wide" title="Azimut (depuis le nord, sens horaire) du haut du plan, c.-à-d. de la direction −Z de la maquette. Lu dans extras.azimut_haut s'il existe.">
+                Haut du plan orienté à <input id="sun-orient" type="number" step="1" min="0" max="360" />°
+              </label>
+            </div>
+            <p class="place-note">Heure légale française (UTC+1 l'hiver, UTC+2 l'été).</p>
+          </details>
+        </div>
+      </section>
+    </div>
+
+    <div id="compass" class="compass" title="Boussole : N = nord, point jaune = soleil">
+      <svg viewBox="-50 -50 100 100" aria-hidden="true">
+        <circle class="ring" r="46" />
+        <g id="compass-rose">
+          <path class="needle-n" d="M0 -32 L7 0 L-7 0 Z" />
+          <path class="needle-s" d="M0 32 L7 0 L-7 0 Z" />
+          <text class="n" y="-34" text-anchor="middle">N</text>
+          <g id="compass-sun"><line class="sun-ray" y1="-8" y2="-36" /><circle class="sun-dot" cy="-40" r="6" /></g>
+        </g>
+        <circle class="hub" r="3.5" />
+      </svg>
+    </div>
+
+    <div id="hud" class="hud">
+      <span id="hud-level" class="hud-level"></span>
+      <span id="hud-room" class="hud-room"></span>
+    </div>
+    <div id="crosshair" class="crosshair"></div>
+
+    <div id="lock-hint" class="lock-hint">
+      <strong>Cliquez dans la vue pour regarder autour</strong>
+      <span>Échap pour libérer la souris · Tab pour revenir à la maquette</span>
+    </div>
+
+    <div id="minimap" class="minimap" title="Cliquez sur le plan pour vous y rendre">
+      <span id="minimap-label"></span>
+      <svg id="minimap-north" class="minimap-north" viewBox="-10 -10 20 20" aria-hidden="true"><text y="-3" text-anchor="middle">N</text><path d="M0 -1 L4.5 9 L0 6.5 L-4.5 9 Z" /></svg>
+    </div>
+
+    <aside id="help" class="panel help"></aside>
+
+    <div id="drop" class="drop"><div>Déposez un fichier <b>.glb</b> ou <b>.gltf</b></div></div>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
